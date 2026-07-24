@@ -4,7 +4,7 @@ use argent_template::{DemoResult, demo_outpoint, print_tx_summary};
 use kaspa_consensus_core::{Hash, tx::CovenantBinding};
 
 fn main() -> DemoResult<()> {
-    let artifact = build_file("ag/app.ag", "build")?;
+    let artifact = build_file("ag/counter.ag", "build/counter")?;
     let builder = TxBuilder::new(&artifact)?;
 
     let before = state! { count: 2 };
@@ -21,6 +21,6 @@ fn main() -> DemoResult<()> {
 
     println!("built Counter::bump");
     print_tx_summary(&tx);
-    println!("artifact: build/artifact.json");
+    println!("artifact: build/counter/artifact.json");
     Ok(())
 }

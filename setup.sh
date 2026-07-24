@@ -32,6 +32,6 @@ echo "building the template"
 cargo build
 
 echo "running the smoke demo"
-cargo run --quiet
+cargo run --quiet --bin counter
 
 echo "Argent template is ready"

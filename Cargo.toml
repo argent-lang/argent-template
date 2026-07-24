@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.94.0"
 license = "ISC"
 publish = false
-default-run = "argent-template"
+default-run = "counter"
 
 [dependencies]
 argent = { path = "../argent" }

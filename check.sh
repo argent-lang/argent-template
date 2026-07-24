@@ -7,5 +7,5 @@ cargo fmt --check
 cargo check --all-targets
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
-cargo run --quiet
+cargo run --quiet --bin counter
 git diff --check

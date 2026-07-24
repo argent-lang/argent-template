@@ -1,6 +1,8 @@
 *.ag linguist-language=Rust
+*.cmd text eol=crlf
 *.json text eol=lf
 *.md text eol=lf
+*.ps1 text eol=crlf
 *.rs text eol=lf
 *.sh text eol=lf
 *.toml text eol=lf

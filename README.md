@@ -26,21 +26,34 @@ also builds the Rust dependencies and runs the included smoke demo, so later run
 
 Open the directory and start with:
 
-- `ag/app.ag` — the Argent application;
-- `src/main.rs` — transaction construction using the generated artifact;
+- `ag/counter.ag` — the Argent application;
+- `src/bin/counter.rs` — transaction construction using the generated artifact;
 - `src/lib.rs` — deterministic local-demo fixtures.
 
-Run the application:
+Run the starter application:
 
 ```bash
 cargo run
 ```
 
-Run all local checks:
+Each additional application can have its own file under `src/bin/` and build output directory. Run a specific application
+with `cargo run --bin <name>`.
+
+Run all local checks on macOS or Linux:
 
 ```bash
 ./check.sh
 ```
+
+On Windows, use the CMD launchers from Command Prompt or PowerShell:
+
+```text
+setup.cmd
+check.cmd
+```
+
+The launchers invoke the matching `setup.ps1` and `check.ps1` scripts without requiring a permanent PowerShell
+execution-policy change.
 
 The included Counter is intentionally disposable. Replace it with your own actors and states while keeping the small
 build-and-run loop.
