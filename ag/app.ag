@@ -1,0 +1,20 @@
+state CounterState {
+    int count;
+}
+
+actor Counter owns CounterState {
+    entry bump(int delta) emits one Counter {
+        require(delta > 0);
+
+        CounterState updated = {
+            count: count + delta,
+        };
+
+        require(next.value == self.value);
+        become Counter(updated);
+    }
+}
+
+app Demo {
+    actor Counter;
+}
