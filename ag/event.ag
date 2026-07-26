@@ -1,0 +1,138 @@
+// import "std::core";
+
+state EventState {
+    int remaining_tickets;
+    int next_serial;
+    int price;
+}
+
+state TicketState {
+    pubkey owner;
+    int serial;
+}
+
+actor Ticket owns TicketState {
+    entry transfer(pubkey next_owner, sig owner_sig) emits one Ticket {
+        require(checkSig(owner_sig, owner));
+
+        // byte[32] id = invocation_uid(bytes("test"));
+
+        TicketState next = {
+            owner: next_owner,
+            serial: serial + 1,
+        };
+
+        become Ticket(next);
+    }
+}
+
+actor Event owns EventState {
+    entry buy(pubkey owner) 
+        emits {
+            event: Event,
+            ticket: Ticket
+        } 
+    {
+        require(remaining_tickets > 0);
+        // Expect the caller to provide the price of the ticket in KAS 
+        require(event.value == self.value + price);
+
+        EventState next_event = {
+            remaining_tickets: remaining_tickets - 1,
+            next_serial: next_serial + 1,
+            price: price,
+        };
+
+        TicketState new_ticket = {
+            owner: owner,
+            serial: next_serial,
+        };
+
+        become {
+            event <- Event(next_event),
+            ticket <- Ticket(new_ticket),
+        };
+    }
+}
+
+app Show {
+    actor Event;
+    actor Ticket;
+}
+
+/*
+state EventState {
+    int remaining;
+    int next_serial;
+}
+
+state TicketState {
+    pubkey owner;
+    int serial;
+}
+
+actor Event owns EventState {
+    entry claim(pubkey owner) emits {
+        event: Event,
+        ticket: Ticket,
+    } {
+        require(remaining > 0);
+
+        EventState next_event = {
+            remaining: remaining - 1,
+            next_serial: next_serial + 1,
+        };
+
+        TicketState new_ticket = {
+            owner: owner,
+            serial: next_serial,
+        };
+
+        become {
+            event <- Event(next_event),
+            ticket <- Ticket(new_ticket),
+        };
+    }
+}
+
+actor Ticket owns TicketState {
+    entry transfer(pubkey next_owner, sig owner_sig) emits one Ticket {
+        require(checkSig(owner_sig, owner));
+
+        TicketState next = {
+            owner: next_owner,
+            serial: serial,
+        };
+
+        become Ticket(next);
+    }
+}
+
+app Ticketing {
+    actor Event;
+    actor Ticket;
+}
+
+// --------------------
+
+state CounterState {
+    int count;
+}
+
+actor Counter owns CounterState {
+    entry bump(int delta) emits one Counter {
+        require(delta > 0);
+
+        CounterState updated = {
+            count: count + delta,
+        };
+
+        require(next.value == self.value);
+        become Counter(updated);
+    }
+}
+
+app Demo {
+    actor Counter;
+}
+*/
