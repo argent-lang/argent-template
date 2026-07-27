@@ -13,7 +13,7 @@ if [[ ! -d "$argent_dir/.git" ]]; then
     fi
 
     echo "cloning Argent into $argent_dir"
-    git clone https://github.com/michaelsutton/argent "$argent_dir"
+    git clone https://github.com/argent-lang/argent "$argent_dir"
     git -C "$argent_dir" checkout --detach "$expected_revision"
 fi
 

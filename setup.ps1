@@ -31,7 +31,7 @@ if (-not (Test-Path $ArgentGitDir -PathType Container)) {
     }
 
     Write-Host "cloning Argent into $ArgentDir"
-    Invoke-Native -Command "git" -Arguments @("clone", "https://github.com/michaelsutton/argent", $ArgentDir)
+    Invoke-Native -Command "git" -Arguments @("clone", "https://github.com/argent-lang/argent", $ArgentDir)
     Invoke-Native -Command "git" -Arguments @("-C", $ArgentDir, "checkout", "--detach", $ExpectedRevision)
 }
 

@@ -1,6 +1,6 @@
 # Argent template
 
-A minimal starting point for writing an [Argent](https://github.com/michaelsutton/argent) application and building a
+A minimal starting point for writing an [Argent](https://github.com/argent-lang/argent) application and building a
 transaction against its generated artifact.
 
 ## Quick start
@@ -16,7 +16,7 @@ kaspanet/
 Clone the template and let the setup script fetch the compatible Argent revision if it is not already present:
 
 ```bash
-git clone https://github.com/michaelsutton/argent-template
+git clone https://github.com/argent-lang/argent-template
 cd argent-template
 ./setup.sh
 ```
