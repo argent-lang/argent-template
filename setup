@@ -2,37 +2,85 @@
 set -euo pipefail
 
 install_vscode_ext=false
+uninstall_vscode_ext=false
 case "${1:-}" in
     "")
         ;;
     --vscode-ext)
         install_vscode_ext=true
         ;;
+    --uninstall-vscode-ext)
+        uninstall_vscode_ext=true
+        ;;
     -h|--help)
         cat <<'USAGE'
-Usage: ./setup.sh [--vscode-ext]
+Usage: ./setup [--vscode-ext | --uninstall-vscode-ext]
 
 Options:
-  --vscode-ext  Link Argent's VS Code extension into the user extension directory.
-  -h, --help    Show this help.
+  --vscode-ext            Link Argent's VS Code extension into the user extension directory.
+  --uninstall-vscode-ext  Remove links to the extension after VS Code has fully exited.
+  -h, --help              Show this help.
 USAGE
         exit 0
         ;;
     *)
         echo "error: unknown option: $1" >&2
-        echo "try: ./setup.sh --help" >&2
+        echo "try: ./setup --help" >&2
         exit 2
         ;;
 esac
 if (( $# > 1 )); then
     echo "error: expected at most one option" >&2
-    echo "try: ./setup.sh --help" >&2
+    echo "try: ./setup --help" >&2
     exit 2
 fi
 
 template_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 workspace_dir="$(dirname -- "$template_dir")"
 argent_dir="${ARGENT_TEMPLATE_ARGENT_DIR:-"$workspace_dir/argent"}"
+
+uninstall_vscode_extension() {
+    local source="$argent_dir/vscode/argent-syntax"
+    local extensions_dir="${VSCODE_EXTENSIONS_DIR:-"$HOME/.vscode/extensions"}"
+    local destination
+    local existing_target
+    local found=false
+
+    if command -v pgrep >/dev/null 2>&1 &&
+        { pgrep -x code >/dev/null 2>&1 || pgrep -x "Visual Studio Code" >/dev/null 2>&1; }; then
+        echo "error: VS Code is running; fully exit it before uninstalling the linked extension" >&2
+        exit 1
+    fi
+
+    if [[ -d "$source" ]]; then
+        source="$(cd -- "$source" && pwd)"
+    fi
+    if [[ ! -d "$extensions_dir" ]]; then
+        echo "Argent VS Code extension is not linked"
+        return
+    fi
+
+    for destination in "$extensions_dir"/*; do
+        [[ -L "$destination" ]] || continue
+        existing_target="$(readlink "$destination")"
+        [[ "$existing_target" == "$source" ]] || continue
+
+        unlink -- "$destination"
+        echo "removed VS Code extension link: $destination"
+        found=true
+    done
+
+    if [[ "$found" == false ]]; then
+        echo "Argent VS Code extension is not linked"
+        return
+    fi
+    echo "Argent source checkout was left unchanged at $source"
+}
+
+if [[ "$uninstall_vscode_ext" == true ]]; then
+    uninstall_vscode_extension
+    exit 0
+fi
 
 if [[ -e "$argent_dir" ]]; then
     if [[ "$(git -C "$argent_dir" rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]]; then

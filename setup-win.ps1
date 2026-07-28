@@ -1,24 +1,28 @@
 $ErrorActionPreference = "Stop"
 
 $InstallVscodeExt = $false
+$UninstallVscodeExt = $false
 foreach ($Argument in $args) {
     if ($Argument -eq "--vscode-ext") {
         $InstallVscodeExt = $true
+    } elseif ($Argument -eq "--uninstall-vscode-ext") {
+        $UninstallVscodeExt = $true
     } elseif ($Argument -eq "-h" -or $Argument -eq "--help") {
         Write-Host @"
-Usage: setup.cmd [--vscode-ext]
+Usage: ./setup [--vscode-ext | --uninstall-vscode-ext]
 
 Options:
-  --vscode-ext  Link Argent's VS Code extension into the user extension directory.
-  -h, --help    Show this help.
+  --vscode-ext            Link Argent's VS Code extension into the user extension directory.
+  --uninstall-vscode-ext  Remove links to the extension after VS Code has fully exited.
+  -h, --help              Show this help.
 "@
         exit 0
     } else {
-        throw "unknown option: $Argument; try setup.cmd --help"
+        throw "unknown option: $Argument; try ./setup --help"
     }
 }
 if ($args.Count -gt 1) {
-    throw "expected at most one option; try setup.cmd --help"
+    throw "expected at most one option; try ./setup --help"
 }
 
 function Invoke-Native {
@@ -42,6 +46,56 @@ $ArgentDir = if ($env:ARGENT_TEMPLATE_ARGENT_DIR) {
     $env:ARGENT_TEMPLATE_ARGENT_DIR
 } else {
     Join-Path $WorkspaceDir "argent"
+}
+
+function Uninstall-VscodeExtension {
+    $RunningCode = @(Get-Process -Name "Code" -ErrorAction SilentlyContinue)
+    if ($RunningCode.Count -gt 0) {
+        throw "VS Code is running; fully exit it before uninstalling the linked extension"
+    }
+
+    $Source = [System.IO.Path]::GetFullPath((Join-Path $ArgentDir "vscode\argent-syntax")).TrimEnd([char]"\")
+    $ExtensionsDir = if ($env:VSCODE_EXTENSIONS_DIR) {
+        $env:VSCODE_EXTENSIONS_DIR
+    } else {
+        Join-Path $env:USERPROFILE ".vscode\extensions"
+    }
+    if (-not (Test-Path $ExtensionsDir -PathType Container)) {
+        Write-Host "Argent VS Code extension is not linked"
+        return
+    }
+
+    $Links = @(
+        Get-ChildItem -LiteralPath $ExtensionsDir -Force -Directory |
+            Where-Object {
+                if ($_.LinkType -ne "Junction" -and $_.LinkType -ne "SymbolicLink") {
+                    return $false
+                }
+
+                $Target = [string]$_.Target
+                if (-not [System.IO.Path]::IsPathRooted($Target)) {
+                    $Target = Join-Path $ExtensionsDir $Target
+                }
+                $Target = [System.IO.Path]::GetFullPath($Target).TrimEnd([char]"\")
+                [string]::Equals($Target, $Source, [System.StringComparison]::OrdinalIgnoreCase)
+            }
+    )
+    if ($Links.Count -eq 0) {
+        Write-Host "Argent VS Code extension is not linked"
+        return
+    }
+
+    foreach ($Link in $Links) {
+        $QuotedPath = "`"$($Link.FullName)`""
+        Invoke-Native -Command "cmd.exe" -Arguments @("/d", "/c", "rmdir $QuotedPath")
+        Write-Host "removed VS Code extension link: $($Link.FullName)"
+    }
+    Write-Host "Argent source checkout was left unchanged at $Source"
+}
+
+if ($UninstallVscodeExt) {
+    Uninstall-VscodeExtension
+    exit 0
 }
 
 if (Test-Path $ArgentDir) {

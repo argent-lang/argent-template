@@ -9,7 +9,7 @@ if defined ARGENT_TEMPLATE_ARGENT_DIR (
 
 if not exist "%ARGENT_DIR%\Cargo.toml" (
     echo error: Argent checkout not found at %ARGENT_DIR% 1>&2
-    echo run setup.cmd first or set ARGENT_TEMPLATE_ARGENT_DIR 1>&2
+    echo run ./setup first or set ARGENT_TEMPLATE_ARGENT_DIR 1>&2
     exit /b 1
 )
 
