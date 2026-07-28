@@ -13,7 +13,7 @@ kaspanet/
   argent-template/
 ```
 
-Clone the template and let the setup script fetch the compatible Argent revision if it is not already present:
+Clone the template and let the setup script clone Argent's current `master` if it is not already present:
 
 ```bash
 git clone https://github.com/argent-lang/argent-template
@@ -21,8 +21,9 @@ cd argent-template
 ./setup.sh
 ```
 
-If `../argent` already exists, `setup.sh` verifies that it is at the revision recorded in `.argent-revision`. The setup
-also builds the Rust dependencies and runs the included smoke demo, so later runs are fast.
+If `../argent` already exists, `setup.sh` uses it without fetching, switching, or pulling it. The script reports the
+checkout's revision, branch, upstream relationship, local `master`, recorded `origin/master`, and working-tree state.
+The setup also builds the Rust dependencies and runs the included smoke demo, so later runs are fast.
 
 Open the directory and start with:
 
