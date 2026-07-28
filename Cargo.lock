@@ -157,6 +157,7 @@ version = "0.1.0"
 dependencies = [
  "argent",
  "argent-runtime",
+ "blake2b_simd",
  "kaspa-consensus-core",
  "secp256k1",
 ]

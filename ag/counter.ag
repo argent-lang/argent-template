@@ -1,18 +1,31 @@
+// Argent's standard library provides shared contract helpers such as invocation_uid.
 import "std::core";
 
 state CounterState {
     int count;
+    byte[32] receipt;
 }
 
 actor Counter owns CounterState {
     entry bump(int delta) emits next: Counter {
         require(delta > 0);
 
+        // Stable for this actor invocation and domain, but distinct for another invocation.
+        byte[32] invocation = invocation_uid(bytes("Counter.bump.receipt"));
+
+        // Silverscript's blake2b builtin chains the previous receipt with the
+        // invocation UID and call data, forming a receipt for this operation.
+        byte[32] new_receipt = blake2b(receipt + invocation + byte[8](count) + byte[8](delta));
+
         CounterState updated = {
             count: count + delta,
+            receipt: new_receipt,
         };
 
         require(next.value == self.value);
+        // or: unrestricted(next.value);
+
+        // Require the output to reflect this actor's updated state.
         become next <- Counter(updated);
     }
 }
