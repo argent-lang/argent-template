@@ -41,6 +41,15 @@ Open the directory and start with:
 - `src/bin/counter.rs` — transaction construction using the generated artifact;
 - `src/lib.rs` — deterministic local-demo fixtures.
 
+Build the Argent source manually or inspect its generated artifact through the local compiler wrapper:
+
+```bash
+./argentc build ag/counter.ag
+./argentc inspect build/argent
+```
+
+On Windows, use `argentc.cmd`.
+
 Run the starter application:
 
 ```bash
