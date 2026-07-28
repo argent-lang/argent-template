@@ -1,5 +1,26 @@
 $ErrorActionPreference = "Stop"
 
+$InstallVscodeExt = $false
+foreach ($Argument in $args) {
+    if ($Argument -eq "--vscode-ext") {
+        $InstallVscodeExt = $true
+    } elseif ($Argument -eq "-h" -or $Argument -eq "--help") {
+        Write-Host @"
+Usage: setup.cmd [--vscode-ext]
+
+Options:
+  --vscode-ext  Link Argent's VS Code extension into the user extension directory.
+  -h, --help    Show this help.
+"@
+        exit 0
+    } else {
+        throw "unknown option: $Argument; try setup.cmd --help"
+    }
+}
+if ($args.Count -gt 1) {
+    throw "expected at most one option; try setup.cmd --help"
+}
+
 function Invoke-Native {
     param(
         [Parameter(Mandatory = $true)]
@@ -70,6 +91,48 @@ function Write-GitRelation {
     Write-Host "${Label}: $Revision (HEAD ahead $($Counts[0]), behind $($Counts[1]))"
 }
 
+function Install-VscodeExtension {
+    $Source = Join-Path $ArgentDir "vscode\argent-syntax"
+    $Manifest = Join-Path $Source "package.json"
+    if (-not (Test-Path $Manifest -PathType Leaf)) {
+        throw "Argent VS Code extension not found at $Source"
+    }
+
+    $Source = (Resolve-Path $Source).Path
+    $Package = Get-Content $Manifest -Raw | ConvertFrom-Json
+    if (-not $Package.publisher -or -not $Package.name -or -not $Package.version) {
+        throw "could not read the Argent VS Code extension identity"
+    }
+
+    $ExtensionsDir = if ($env:VSCODE_EXTENSIONS_DIR) {
+        $env:VSCODE_EXTENSIONS_DIR
+    } else {
+        Join-Path $env:USERPROFILE ".vscode\extensions"
+    }
+    $Destination = Join-Path $ExtensionsDir "$($Package.publisher).$($Package.name)-$($Package.version)"
+    New-Item -ItemType Directory -Path $ExtensionsDir -Force | Out-Null
+
+    $Existing = Get-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+    if ($null -ne $Existing) {
+        if ($Existing.LinkType -ne "Junction" -and $Existing.LinkType -ne "SymbolicLink") {
+            throw "$Destination already exists and is not the expected link; remove it manually before installing the local Argent extension"
+        }
+        $ExistingTarget = [string]$Existing.Target
+        if (-not [System.IO.Path]::IsPathRooted($ExistingTarget)) {
+            $ExistingTarget = Join-Path $ExtensionsDir $ExistingTarget
+        }
+        $ExistingTarget = [System.IO.Path]::GetFullPath($ExistingTarget)
+        if (-not [string]::Equals($ExistingTarget, $Source, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "$Destination already links to $ExistingTarget; refusing to replace it with $Source"
+        }
+        Write-Host "VS Code extension already linked: $Destination -> $Source"
+    } else {
+        New-Item -ItemType Junction -Path $Destination -Target $Source | Out-Null
+        Write-Host "linked VS Code extension: $Destination -> $Source"
+    }
+    Write-Host "reload VS Code; the extension activates when an .ag file is opened"
+}
+
 Write-Host "using Argent checkout at $ArgentDir"
 Write-Host "HEAD: $(Get-GitText -Arguments @("rev-parse", "HEAD"))"
 $Branch = (& git -C $ArgentDir symbolic-ref --quiet --short HEAD 2>$null)
@@ -110,6 +173,12 @@ if ($WorkingTree.Count -gt 0) {
     Write-Host "working tree: has local changes"
 } else {
     Write-Host "working tree: clean"
+}
+
+if ($InstallVscodeExt) {
+    Install-VscodeExtension
+    Write-Host "Argent VS Code extension is ready"
+    exit 0
 }
 
 Push-Location $TemplateDir

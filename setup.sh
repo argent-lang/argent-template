@@ -1,6 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+install_vscode_ext=false
+case "${1:-}" in
+    "")
+        ;;
+    --vscode-ext)
+        install_vscode_ext=true
+        ;;
+    -h|--help)
+        cat <<'USAGE'
+Usage: ./setup.sh [--vscode-ext]
+
+Options:
+  --vscode-ext  Link Argent's VS Code extension into the user extension directory.
+  -h, --help    Show this help.
+USAGE
+        exit 0
+        ;;
+    *)
+        echo "error: unknown option: $1" >&2
+        echo "try: ./setup.sh --help" >&2
+        exit 2
+        ;;
+esac
+if (( $# > 1 )); then
+    echo "error: expected at most one option" >&2
+    echo "try: ./setup.sh --help" >&2
+    exit 2
+fi
+
 template_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 workspace_dir="$(dirname -- "$template_dir")"
 argent_dir="${ARGENT_TEMPLATE_ARGENT_DIR:-"$workspace_dir/argent"}"
@@ -25,6 +54,59 @@ print_relation() {
     revision="$(git -C "$argent_dir" rev-parse "$ref")"
     read -r ahead behind < <(git -C "$argent_dir" rev-list --left-right --count "HEAD...$ref")
     echo "$label: $revision (HEAD ahead $ahead, behind $behind)"
+}
+
+json_string_field() {
+    local manifest="$1"
+    local field="$2"
+
+    sed -n "s/^[[:space:]]*\"$field\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" "$manifest"
+}
+
+install_vscode_extension() {
+    local source="$argent_dir/vscode/argent-syntax"
+    local manifest="$source/package.json"
+    local publisher
+    local name
+    local version
+    local extensions_dir
+    local destination
+    local existing_target
+
+    if [[ ! -f "$manifest" ]]; then
+        echo "error: Argent VS Code extension not found at $source" >&2
+        exit 1
+    fi
+    source="$(cd -- "$source" && pwd)"
+    publisher="$(json_string_field "$manifest" publisher)"
+    name="$(json_string_field "$manifest" name)"
+    version="$(json_string_field "$manifest" version)"
+    if [[ -z "$publisher" || -z "$name" || -z "$version" ]]; then
+        echo "error: could not read the Argent VS Code extension identity" >&2
+        exit 1
+    fi
+
+    extensions_dir="${VSCODE_EXTENSIONS_DIR:-"$HOME/.vscode/extensions"}"
+    destination="$extensions_dir/$publisher.$name-$version"
+    mkdir -p -- "$extensions_dir"
+
+    if [[ -L "$destination" ]]; then
+        existing_target="$(readlink "$destination")"
+        if [[ "$existing_target" != "$source" ]]; then
+            echo "error: $destination already links to $existing_target" >&2
+            echo "refusing to replace it with $source" >&2
+            exit 1
+        fi
+        echo "VS Code extension already linked: $destination -> $source"
+    elif [[ -e "$destination" ]]; then
+        echo "error: $destination already exists and is not the expected link" >&2
+        echo "remove it manually before installing the local Argent extension" >&2
+        exit 1
+    else
+        ln -s -- "$source" "$destination"
+        echo "linked VS Code extension: $destination -> $source"
+    fi
+    echo "reload VS Code; the extension activates when an .ag file is opened"
 }
 
 echo "using Argent checkout at $argent_dir"
@@ -59,6 +141,12 @@ if [[ -n "$(git -C "$argent_dir" status --porcelain)" ]]; then
     echo "working tree: has local changes"
 else
     echo "working tree: clean"
+fi
+
+if [[ "$install_vscode_ext" == true ]]; then
+    install_vscode_extension
+    echo "Argent VS Code extension is ready"
+    exit 0
 fi
 
 cd -- "$template_dir"
