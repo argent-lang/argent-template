@@ -5,7 +5,7 @@ state CounterState {
 }
 
 actor Counter owns CounterState {
-    entry bump(int delta) emits one Counter {
+    entry bump(int delta) emits next: Counter {
         require(delta > 0);
 
         CounterState updated = {
@@ -13,7 +13,7 @@ actor Counter owns CounterState {
         };
 
         require(next.value == self.value);
-        become Counter(updated);
+        become next <- Counter(updated);
     }
 }
 
