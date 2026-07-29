@@ -14,10 +14,10 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Prepare compatible Argent checkout
-        run: ./setup.sh
+        run: ./setup
 
       - name: Run checks
-        run: ./check.sh
+        run: ./check
 
   windows:
     name: Windows
@@ -28,8 +28,8 @@ jobs:
 
       - name: Prepare compatible Argent checkout
         shell: powershell
-        run: .\setup.ps1
+        run: ./setup
 
       - name: Run checks
         shell: powershell
-        run: .\check.ps1
+        run: ./check

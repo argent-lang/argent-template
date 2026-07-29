@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+template_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+workspace_dir="$(dirname -- "$template_dir")"
+argent_dir="${ARGENT_TEMPLATE_ARGENT_DIR:-"$workspace_dir/argent"}"
+manifest="$argent_dir/Cargo.toml"
+
+if [[ ! -f "$manifest" ]]; then
+    echo "error: Argent checkout not found at $argent_dir" >&2
+    echo "run ./setup first or set ARGENT_TEMPLATE_ARGENT_DIR" >&2
+    exit 1
+fi
+
+exec cargo run --quiet --manifest-path "$manifest" --bin argentc -- "$@"

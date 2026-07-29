@@ -20,6 +20,13 @@ pub fn demo_keypair(byte: u8) -> Keypair {
     Keypair::from_secret_key(&Secp256k1::new(), &secret_key)
 }
 
+/// Returns a deterministic keypair and its 32-byte x-only public key.
+pub fn demo_keys(byte: u8) -> (Keypair, Vec<u8>) {
+    let keypair = demo_keypair(byte);
+    let public_key = keypair.x_only_public_key().0.serialize().to_vec();
+    (keypair, public_key)
+}
+
 /// Returns a simple local funding UTXO.
 pub fn demo_funding_utxo(value: u64) -> UtxoEntry {
     UtxoEntry::new(value, ScriptPublicKey::from_vec(0, vec![0x51]), 0, false, None)

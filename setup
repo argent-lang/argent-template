@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+install_vscode_ext=false
+uninstall_vscode_ext=false
+case "${1:-}" in
+    "")
+        ;;
+    --vscode-ext)
+        install_vscode_ext=true
+        ;;
+    --uninstall-vscode-ext)
+        uninstall_vscode_ext=true
+        ;;
+    -h|--help)
+        cat <<'USAGE'
+Usage: ./setup [--vscode-ext | --uninstall-vscode-ext]
+
+Options:
+  --vscode-ext            Link Argent's VS Code extension into the user extension directory.
+  --uninstall-vscode-ext  Remove links to the extension after VS Code has fully exited.
+  -h, --help              Show this help.
+USAGE
+        exit 0
+        ;;
+    *)
+        echo "error: unknown option: $1" >&2
+        echo "try: ./setup --help" >&2
+        exit 2
+        ;;
+esac
+if (( $# > 1 )); then
+    echo "error: expected at most one option" >&2
+    echo "try: ./setup --help" >&2
+    exit 2
+fi
+
+template_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+workspace_dir="$(dirname -- "$template_dir")"
+argent_dir="${ARGENT_TEMPLATE_ARGENT_DIR:-"$workspace_dir/argent"}"
+
+uninstall_vscode_extension() {
+    local source="$argent_dir/vscode/argent-syntax"
+    local extensions_dir="${VSCODE_EXTENSIONS_DIR:-"$HOME/.vscode/extensions"}"
+    local destination
+    local existing_target
+    local found=false
+
+    if command -v pgrep >/dev/null 2>&1 &&
+        { pgrep -x "code([_-].+)?" >/dev/null 2>&1 || pgrep -x "Visual Studio Code" >/dev/null 2>&1; }; then
+        echo "error: VS Code is running; fully exit it before uninstalling the linked extension" >&2
+        exit 1
+    fi
+
+    if [[ -d "$source" ]]; then
+        source="$(cd -- "$source" && pwd)"
+    fi
+    if [[ ! -d "$extensions_dir" ]]; then
+        echo "Argent VS Code extension is not linked"
+        return
+    fi
+
+    for destination in "$extensions_dir"/*; do
+        [[ -L "$destination" ]] || continue
+        existing_target="$(readlink "$destination")"
+        [[ "$existing_target" == "$source" ]] || continue
+
+        unlink -- "$destination"
+        echo "removed VS Code extension link: $destination"
+        found=true
+    done
+
+    if [[ "$found" == false ]]; then
+        echo "Argent VS Code extension is not linked"
+        return
+    fi
+    echo "Argent source checkout was left unchanged at $source"
+}
+
+if [[ "$uninstall_vscode_ext" == true ]]; then
+    uninstall_vscode_extension
+    exit 0
+fi
+
+if [[ -e "$argent_dir" ]]; then
+    if [[ "$(git -C "$argent_dir" rev-parse --is-inside-work-tree 2>/dev/null || true)" != "true" ]]; then
+        echo "error: $argent_dir exists but is not an Argent Git checkout" >&2
+        exit 1
+    fi
+else
+    echo "cloning Argent into $argent_dir"
+    git clone --branch master https://github.com/argent-lang/argent "$argent_dir"
+fi
+
+print_relation() {
+    local label="$1"
+    local ref="$2"
+    local revision
+    local ahead
+    local behind
+
+    revision="$(git -C "$argent_dir" rev-parse "$ref")"
+    read -r ahead behind < <(git -C "$argent_dir" rev-list --left-right --count "HEAD...$ref")
+    echo "$label: $revision (HEAD ahead $ahead, behind $behind)"
+}
+
+json_string_field() {
+    local manifest="$1"
+    local field="$2"
+
+    sed -n "s/^[[:space:]]*\"$field\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" "$manifest"
+}
+
+install_vscode_extension() {
+    local source="$argent_dir/vscode/argent-syntax"
+    local manifest="$source/package.json"
+    local publisher
+    local name
+    local version
+    local extensions_dir
+    local destination
+    local existing_target
+
+    if [[ ! -f "$manifest" ]]; then
+        echo "error: Argent VS Code extension not found at $source" >&2
+        exit 1
+    fi
+    source="$(cd -- "$source" && pwd)"
+    publisher="$(json_string_field "$manifest" publisher)"
+    name="$(json_string_field "$manifest" name)"
+    version="$(json_string_field "$manifest" version)"
+    if [[ -z "$publisher" || -z "$name" || -z "$version" ]]; then
+        echo "error: could not read the Argent VS Code extension identity" >&2
+        exit 1
+    fi
+
+    extensions_dir="${VSCODE_EXTENSIONS_DIR:-"$HOME/.vscode/extensions"}"
+    destination="$extensions_dir/$publisher.$name-$version"
+    mkdir -p -- "$extensions_dir"
+
+    if [[ -L "$destination" ]]; then
+        existing_target="$(readlink "$destination")"
+        if [[ "$existing_target" != "$source" ]]; then
+            echo "error: $destination already links to $existing_target" >&2
+            echo "refusing to replace it with $source" >&2
+            exit 1
+        fi
+        echo "VS Code extension already linked: $destination -> $source"
+    elif [[ -e "$destination" ]]; then
+        echo "error: $destination already exists and is not the expected link" >&2
+        echo "remove it manually before installing the local Argent extension" >&2
+        exit 1
+    else
+        ln -s -- "$source" "$destination"
+        echo "linked VS Code extension: $destination -> $source"
+    fi
+    echo "reload VS Code; the extension activates when an .ag file is opened"
+}
+
+echo "using Argent checkout at $argent_dir"
+echo "HEAD: $(git -C "$argent_dir" rev-parse HEAD)"
+if branch="$(git -C "$argent_dir" symbolic-ref --quiet --short HEAD)"; then
+    echo "branch: $branch"
+else
+    echo "branch: detached"
+fi
+if upstream="$(git -C "$argent_dir" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
+    print_relation "upstream $upstream" "$upstream"
+else
+    echo "upstream: none"
+fi
+if git -C "$argent_dir" show-ref --verify --quiet refs/heads/master; then
+    print_relation "local master" refs/heads/master
+else
+    echo "local master: absent"
+fi
+if git -C "$argent_dir" show-ref --verify --quiet refs/remotes/origin/master; then
+    print_relation "recorded origin/master" refs/remotes/origin/master
+    if origin_url="$(git -C "$argent_dir" remote get-url origin 2>/dev/null)"; then
+        echo "origin: $origin_url"
+    else
+        echo "origin: not configured"
+    fi
+    echo "note: setup does not fetch or update an existing checkout"
+else
+    echo "recorded origin/master: absent"
+fi
+if [[ -n "$(git -C "$argent_dir" status --porcelain)" ]]; then
+    echo "working tree: has local changes"
+else
+    echo "working tree: clean"
+fi
+
+if [[ "$install_vscode_ext" == true ]]; then
+    install_vscode_extension
+    echo "Argent VS Code extension is ready"
+    exit 0
+fi
+
+cd -- "$template_dir"
+
+echo "building the template"
+cargo build
+
+echo "running the smoke demo"
+cargo run --quiet --bin counter
+
+echo "Argent template is ready"
