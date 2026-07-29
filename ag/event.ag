@@ -1,0 +1,78 @@
+
+
+/*
+
+app requirements:
+    - the event should have a limited fixed number of tickets 
+    - tickets have a fixed price 
+    - a ticket has an owner 
+    - the ticket can be transferred 
+
+*/
+
+
+state EventState {
+    int remaining_tickets;
+    int serial;
+    int price;
+}
+
+state TicketState {
+    pubkey owner; 
+    int serial;
+}
+
+actor Event owns EventState {
+
+    entry buy(pubkey buyer)
+    
+    emits {
+        event: Event,
+        ticket: Ticket
+    } {
+        require(self.remaining_tickets > 0);
+        // event KAS must increase by price 
+        require(event.value == self.value + self.price);
+        // buyer can choose its KAS value freely
+        unrestricted(ticket.value);
+
+        EventState next_event = {
+            remaining_tickets: self.remaining_tickets - 1,
+            serial: self.serial + 1,
+            price: self.price,
+        };
+
+        TicketState new_ticket = {
+            owner: buyer,
+            serial: self.serial,
+        };
+
+        become {
+            event <- Event(next_event),
+            ticket <- Ticket(new_ticket),
+        };
+    }
+
+} 
+
+actor Ticket owns TicketState {
+    entry transfer() emits none {
+        // todo
+    }
+
+    // delegate
+}
+
+app Show {
+    actor Event;
+    actor Ticket;
+}
+
+
+/*
+utxo:
+    script pub key: p2sh(actor + state)
+    value (KAS)
+    daa_score 
+    None | Some(covenant_id)  
+*/
