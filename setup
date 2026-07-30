@@ -47,7 +47,7 @@ uninstall_vscode_extension() {
     local found=false
 
     if command -v pgrep >/dev/null 2>&1 &&
-        { pgrep -x code >/dev/null 2>&1 || pgrep -x "Visual Studio Code" >/dev/null 2>&1; }; then
+        { pgrep -x "code([_-].+)?" >/dev/null 2>&1 || pgrep -x "Visual Studio Code" >/dev/null 2>&1; }; then
         echo "error: VS Code is running; fully exit it before uninstalling the linked extension" >&2
         exit 1
     fi
